@@ -159,14 +159,14 @@ spec:
           value: elasticsearch
         - name: SW_STORAGE_ES_CLUSTER_NODES
           value: "elasticsearch.logging:9200"
-        volumeMounts:
-        - name: alarm-config
-          mountPath: /skywalking/config/alarm-settings.yml
-          subPath: alarm-settings.yml 
-      volumes:
-      - name: alarm-config
-        configMap:
-          name: skywalking-alarm-config
+#        volumeMounts:
+#        - name: alarm-config
+#          mountPath: /skywalking/config/alarm-settings.yml
+#          subPath: alarm-settings.yml 
+#      volumes:
+#      - name: alarm-config
+#        configMap:
+#          name: skywalking-alarm-config
 ---
 # Source: skywalking/templates/ui-deployment.yaml
 apiVersion: apps/v1
