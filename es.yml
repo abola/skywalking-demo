@@ -1,14 +1,3 @@
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: elasticsearch-data-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 4Gi
----
 # Elasticsearch Service
 apiVersion: v1
 kind: Service
@@ -47,7 +36,7 @@ spec:
         - name: elasticsearch-data
           mountPath: /usr/share/elasticsearch/data    
       containers:
-      - image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.4
+      - image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.2
         name: elasticsearch
         resources:
           # need more cpu upon initialization, therefore burstable class
@@ -70,8 +59,7 @@ spec:
           mountPath: /usr/share/elasticsearch/data
       volumes:
       - name: elasticsearch-data
-        persistentVolumeClaim:
-          claimName: elasticsearch-data-pvc
+        emptyDir: {}
 ---
 # Kibana Service
 apiVersion: v1
@@ -105,7 +93,7 @@ spec:
     spec:
       containers:
       - name: kibana
-        image: docker.elastic.co/kibana/kibana-oss:6.8.4
+        image: docker.elastic.co/kibana/kibana-oss:6.8.2
         resources:
           # need more cpu upon initialization, therefore burstable class
           limits:
