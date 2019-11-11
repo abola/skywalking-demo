@@ -13,3 +13,8 @@ maintainers:
 - name: innerpeacez
   email: innerpeace.zhai@gmail.com
 
+dependencies:
+  - name: elasticsearch
+    version: ~1.28.2
+    repository: https://kubernetes-charts.storage.googleapis.com/
+    condition: elasticsearch.enabled

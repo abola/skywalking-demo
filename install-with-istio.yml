@@ -1,0 +1,244 @@
+---
+# Source: skywalking/templates/oap-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: skywalking
+    chart: skywalking-0.1.2
+    component: "skywalking-oap"
+    heritage: Helm
+    release: sky
+  name: sky-skywalking-skywalking-oap
+---
+# Source: skywalking/templates/oap-role.yaml
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: sky-skywalking
+  labels:
+    app: skywalking
+    chart: "skywalking-0.1.2"
+    release: "sky"
+    heritage: "Helm"
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
+---
+# Source: skywalking/templates/oap-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sky-skywalking
+  labels:
+    app: skywalking
+    chart: "skywalking-0.1.2"
+    release: "sky"
+    heritage: "Helm"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sky-skywalking
+subjects:
+  - kind: ServiceAccount
+    name: sky-skywalking-skywalking-oap
+    namespace: default
+---
+# Source: skywalking/templates/oap-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sky-skywalking-skywalking-oap
+  labels:
+    app: skywalking
+    chart: skywalking-0.1.2
+    component: "skywalking-oap"
+    heritage: Helm
+    release: sky
+spec:
+  type: ClusterIP
+  ports:
+  - port: 12800
+    name: rest
+  - port: 11800
+    name: grpc
+  selector:
+    app: skywalking
+    component: "skywalking-oap"
+    release: sky
+---
+# Source: skywalking/templates/ui-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: skywalking
+    chart: skywalking-0.1.2
+    component: "skywalking-ui"
+    heritage: Helm
+    release: sky
+  name: sky-skywalking-skywalking-ui
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+
+  selector:
+    app: skywalking
+    component: "skywalking-ui"
+    release: sky
+---
+# Source: skywalking/templates/oap-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: skywalking
+    chart: skywalking-0.1.2
+    component: "skywalking-oap"
+    heritage: Helm
+    release: sky
+  name: sky-skywalking-skywalking-oap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skywalking
+      component: "skywalking-oap"
+      release: sky
+  template:
+    metadata:
+      labels:
+        app: skywalking
+        component: "skywalking-oap"
+        release: sky
+    spec:
+      serviceAccountName: sky-skywalking-skywalking-oap
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: "skywalking"
+                  release: "sky"
+                  component: "skywalking-oap"
+      initContainers:
+      - name: wait-for-elasticsearch
+        image: busybox:1.30
+        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c', 'for i in $(seq 1 60); do nc -z -w3 elasticsearch.logging 9200 && exit 0 || sleep 5; done; exit 1']
+      containers:
+      - name: skywalking-oap
+        image: "gcr.io/seata-demo-fd51a7/oap-server:6.4.0-p2"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 11800
+          name: grpc
+        - containerPort: 12800
+          name: rest
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx1g -Xms1g -Dmode=no-init"
+        - name: SW_CLUSTER
+          value: kubernetes
+        - name: SW_CLUSTER_K8S_NAMESPACE
+          value: "default"
+        - name: SW_CLUSTER_K8S_LABEL
+          value: "app=skywalking,release=sky,component=skywalking-oap"
+        - name: SKYWALKING_COLLECTOR_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: SW_STORAGE
+          value: elasticsearch
+        - name: SW_STORAGE_ES_CLUSTER_NODES
+          value: "elasticsearch.logging:9200"
+        volumeMounts:
+        - name: alarm-config
+          mountPath: /skywalking/config/alarm-settings.yml
+          subPath: alarm-settings.yml 
+      volumes:
+      - name: alarm-config
+        configMap:
+          name: skywalking-alarm-config
+---
+# Source: skywalking/templates/ui-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sky-skywalking-skywalking-ui
+  labels:
+    app: skywalking
+    chart: skywalking-0.1.2
+    component: "skywalking-ui"
+    heritage: Helm
+    release: sky
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skywalking
+      component: "skywalking-ui"
+      release: sky
+  template:
+    metadata:
+      labels:
+        app: skywalking
+        component: "skywalking-ui"
+        release: sky
+    spec:
+      containers:
+      - name: skywalking-ui
+        image: apache/skywalking-ui:6.4.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: page
+        env:
+        - name: SW_OAP_ADDRESS
+          value: sky-skywalking-skywalking-oap:12800
+---
+# Source: skywalking/templates/es-init.job.yaml
+# https://docs.sentry.io/server/installation/docker/#running-migrations
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "sky-es-init"
+  labels:
+    app: skywalking
+    chart: skywalking-0.1.2
+    component: "sky-skywalking-job"
+    heritage: Helm
+    release: sky
+spec:
+  template:
+    metadata:
+      name: "sky-es-init"
+      labels:
+        app: skywalking
+        component: "sky-skywalking-job"
+        release: sky
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-elasticsearch
+        image: busybox:1.30
+        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c', 'for i in $(seq 1 60); do nc -z -w3 elasticsearch.logging 9200 && exit 0 || sleep 5; done; exit 1']
+      containers:
+      - name: skywalking-oap
+        image: "gcr.io/seata-demo-fd51a7/oap-server:6.4.0-p2"
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx1g -Xms1g -Dmode=init"
+        - name: SW_STORAGE
+          value: elasticsearch
+        - name: SW_STORAGE_ES_CLUSTER_NODES
+          value: "elasticsearch.logging:9200"

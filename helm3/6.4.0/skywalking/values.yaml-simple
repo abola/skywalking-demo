@@ -98,6 +98,8 @@ elasticsearch:
 
   client:
     name: client
+    service:
+      name: elasticsearch.logging
     replicas: 1
     serviceType: ClusterIP
     ## If coupled with serviceType = "NodePort", this will set a specific nodePort to the client HTTP port
