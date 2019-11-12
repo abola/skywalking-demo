@@ -13,6 +13,21 @@ spec:
   selector:
     app: elasticsearch
 ---
+# Elasticsearch Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-discover
+  labels:
+    app: elasticsearch
+spec:
+  ports:
+  - port: 9300
+    protocol: TCP
+    targetPort: 9300
+  selector:
+    app: elasticsearch
+---
 # Elasticsearch Deployment
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -36,7 +51,7 @@ spec:
         - name: elasticsearch-data
           mountPath: /usr/share/elasticsearch/data    
       containers:
-      - image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.2
+      - image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.4
         name: elasticsearch
         resources:
           # need more cpu upon initialization, therefore burstable class
@@ -93,7 +108,7 @@ spec:
     spec:
       containers:
       - name: kibana
-        image: docker.elastic.co/kibana/kibana-oss:6.8.2
+        image: docker.elastic.co/kibana/kibana-oss:6.8.4
         resources:
           # need more cpu upon initialization, therefore burstable class
           limits:
@@ -102,9 +117,9 @@ spec:
             cpu: 10m
         env:
           - name: ELASTICSEARCH_URL
-            value: https://elasticsearch:9200
+            value: http://elasticsearch:9200
           - name: ELASTICSEARCH_HOSTS
-            value: https://elasticsearch:9200
+            value: http://elasticsearch:9200
         ports:
         - containerPort: 5601
           name: ui
